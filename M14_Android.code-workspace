@@ -1,42 +1,48 @@
 {
-	"folders": [
-		{ "name": "Project", "path": "." },
-		{ "name": "src", "path": "app/src/main" }
-	],
-	"settings": {
-		// Hidden from the Explorer (and from search). Delete a line to show that item again.
-		"files.exclude": {
-			// IDE / Gradle caches and build output
-			"**/.gradle": true,
-			"**/.idea": true,
-			"**/.kotlin": true,
-			"**/build": true,
-			"**/*.iml": true,
-			"**/.gitignore": true,
-			"*.code-workspace": true,
+    "folders": [
+        { "name": "Project", "path": "." },
+        { "name": "src", "path": "app/src/main" },
+    ],
+    "settings": {
+        // Hidden from the Explorer (and from search). Delete a line to show that item again.
+        "files.exclude": {
+            // IDE / Gradle caches and build output
+            "**/.gradle": true,
+            "**/.idea": true,
+            "**/.kotlin": true,
+            "**/build": true,
+            "**/*.iml": true,
+            "**/.gitignore": true,
+            "*.code-workspace": true,
 
-			// Gradle plumbing you never edit by hand
-			"gradle/wrapper": true,
-			"gradle/gradle-daemon-jvm.properties": true,
-			"gradlew": true,
-			"gradlew.bat": true,
-			"gradle.properties": true,
-			"local.properties": true,
-			"settings.gradle.kts": true,
-			"build.gradle.kts": true,
+            // Gradle plumbing you never edit by hand
+            "gradle/wrapper": true,
+            "gradle/gradle-daemon-jvm.properties": true,
+            "gradlew": true,
+            "gradlew.bat": true,
+            "gradle.properties": true,
+            "local.properties": true,
+            "settings.gradle.kts": true,
+            "build.gradle.kts": true,
 
-			// Template tests, generated launcher icons, and backup/shrinker rules
-			"app/src/test": true,
-			"app/src/androidTest": true,
-			"**/keepRules": true,
-			"**/res/mipmap-*": true,
-			"**/res/xml": true
-		},
-		"files.watcherExclude": {
-			"**/.gradle/**": true,
-			"**/.kotlin/**": true,
-			"**/build/**": true
-		},
-		"explorer.compactFolders": true
-	}
+            // Template tests, generated launcher icons, and backup/shrinker rules
+            "app/src/test": true,
+            "app/src/androidTest": true,
+            "**/keepRules": true,
+            "**/res/mipmap-*": true,
+            "**/res/xml": true,
+        },
+        "files.watcherExclude": {
+            "**/.gradle/**": true,
+            "**/.kotlin/**": true,
+            "**/build/**": true,
+        },
+        "explorer.compactFolders": true,
+
+        // Format Kotlin with the JetBrains extension (the global default, Prettier, can't format Kotlin)
+        "[kotlin]": {
+            "editor.defaultFormatter": "JetBrains.kotlin-server",
+            "editor.formatOnSave": true,
+        },
+    },
 }

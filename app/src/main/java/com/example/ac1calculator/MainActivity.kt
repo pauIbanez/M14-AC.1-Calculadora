@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,14 +29,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ac1calculator.ui.theme.AC1CalculatorTheme
 
+
 class MainActivity : ComponentActivity() {
 
 
-    var currentNumber by mutableStateOf("0")
-    var currentOperation by mutableStateOf("0")
-    var lastOperation by mutableStateOf("0")
-    var isOperationResult by mutableStateOf(false)
+    var number by mutableStateOf("0")
+    var operation by mutableStateOf("")
 
+    var resetNumber = false
+    var accumulator: Double? = null
+    var pendingOp: Char? = null
+    var lastOp: Char? = null
+    var lastOperand: Double? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,114 +56,157 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Bottom
                     ) {
 
-                        RememberBox(currentOperation)
-                        ValueBox(currentNumber)
-                        CalculatorButtons(
-                            onButtonClick = { label ->
-                                when {
-                                    label == "C" ->{
-                                        currentOperation = "0"
-                                        currentNumber = "0"
-                                        lastOperation = ""
-                                        isOperationResult = false
-
-                                    }
-                                    label == "=" -> {
-                                        isOperationResult = true
-                                        currentNumber = CalculateResult(currentOperation+currentNumber)
-                                        currentOperation += currentNumber
-                                    }
-                                    else ->ParseValue(label)
-                                }
-                            }
-                        )
+                        operationBox(operation)
+                        valueBox(number)
+                        calculatorButtons({ label -> processToken(label) })
                     }
                 }
             }
         }
     }
 
-    fun ParseValue(value: String) {
-        if(value[0].isDigit()){
-            if(isOperationResult) {
-                isOperationResult = false
-                currentNumber = value
-                return
+
+    fun processToken(token: String) {
+        when (token) {
+            "C" -> reset()
+            "=" -> onEqual()
+            else -> onToken(token)
+        }
+    }
+
+    fun reset() {
+        number = "0"
+        operation = ""
+
+        resetNumber = false
+        accumulator = null
+        pendingOp = null
+        lastOp = null
+        lastOperand = null
+    }
+
+    fun onEqual() {
+        when {
+            pendingOp != null -> {
+                val rightOperand = number.toDoubleOrNull() ?: return
+                val result = apply(accumulator!!, pendingOp!!, rightOperand) ?: return showError()
+                operation = format(accumulator!!) + pendingOp + format(rightOperand) + "="
+                lastOp = pendingOp
+                lastOperand = rightOperand
+                pendingOp = null
+                accumulator = null
+                number = format(result)
             }
-            DropLeadingZero(value)
 
-        }
-        else if(!currentOperation.last().isDigit()) ReplaceOperation(value)
-        else if (isOperationResult) {
-            currentOperation = currentNumber+value
-        }
-        else {
-            currentOperation = currentNumber+value
-        }
+            lastOp != null -> {
+                val leftOperand = number.toDoubleOrNull() ?: return
+                val result = apply(leftOperand, lastOp!!, lastOperand!!) ?: return showError()
+                operation = format(leftOperand) + lastOp + format(lastOperand!!) + "="
+                number = format(result)
+            }
 
-    }
-
-    fun DropLeadingZero(token: String) {
-        var lastToken = currentNumber.takeLastWhile { it.isDigit() || it == '.' }
-        if(lastToken == "0") currentNumber = currentNumber.dropLast(1) + token
-        else currentNumber+token
-    }
-
-    fun ReplaceOperation(token: String) {
-        currentOperation = currentOperation.dropLast(1) + token
-    }
-
-
-
-    fun CalculateResult(value: String) : String {
-
-        var numbers = mutableListOf<Double>()
-        var operators = mutableListOf<Char>()
-        var current = ""
-
-
-        for (c in value) {
-            if (c.isDigit() || c == '.') {
-                current += c
-            } else {
-                numbers.add(current.toDoubleOrNull() ?: return "Error")
-                operators.add(c)
-                current = ""
+            else -> {
+                operation = "$number="
             }
         }
-        numbers.add(current.toDoubleOrNull() ?: return "Error")
+        resetNumber = true
+    }
 
-        var i = 0
-        while (i < operators.size) {
-        val op = operators[i]
-        if (op == '×' || op == '÷') {
-            val a = numbers[i]
-            val b = numbers[i + 1]
-            if (op == '÷' && b == 0.0) return "Error"
-            numbers[i] = if (op == '×') a * b else a / b
-            numbers.removeAt(i + 1)
-            operators.removeAt(i)
-        } else {
-            i++
+    fun showError() {
+        reset()
+        number = "Error"
+        resetNumber = true
+    }
+
+    fun onToken(token: String) {
+        if (token.first().isDigit() || token == ".") onDigit(token)
+        else onOperator(token)
+    }
+
+    fun onDigit(token: String) {
+        if (token == ".") {
+            when {
+                resetNumber -> {
+                    if (pendingOp == null) operation = ""
+                    number = "0."
+                    resetNumber = false
+                }
+
+                !number.contains('.') -> number += "."
+            }
+            return
+        }
+
+        when {
+            resetNumber && pendingOp == null -> {
+                number = token
+                operation = ""
+                resetNumber = false
+            }
+
+            resetNumber -> {
+                number = token
+                resetNumber = false
+            }
+
+            else -> addDigit(token)
         }
     }
 
-    var result = numbers[0]
-    for (j in operators.indices) {
-        when (operators[j]) {
-            '+' -> result += numbers[j + 1]
-            '−' -> result -= numbers[j + 1]
+
+    fun onOperator(operator: String) {
+
+
+        when {
+            pendingOp != null && resetNumber -> {
+                pendingOp = operator.first()
+                operation = number + operator
+            }
+
+            pendingOp != null -> {
+                val result = apply(accumulator!!, pendingOp!!, number.toDouble()) ?: return showError()
+                number = format(result)
+                accumulator = result
+                pendingOp = operator.first()
+                operation = number + operator
+            }
+
+
+            else -> {
+                accumulator = number.toDoubleOrNull() ?: return
+                pendingOp = operator.first()
+                operation = number + operator
+            }
         }
+
+        resetNumber = true
+        lastOp = null
+        lastOperand = null
     }
 
-    return if (result % 1.0 == 0.0) result.toLong().toString() else result.toString()
 
+    fun addDigit(token: String) {
+        var lastToken = number.takeLastWhile { it.isDigit() || it == '.' }
+        if (lastToken == "0") number = number.dropLast(1) + token
+        else number += token
     }
+
+    fun apply(a: Double, op: Char, b: Double): Double? = when (op) {
+        '+' -> a + b
+        '−' -> a - b
+        '×' -> a * b
+        '÷' -> if (b == 0.0) null else a / b
+        else -> null
+    }
+
+    fun format(value: Double): String =
+        if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
+
 }
 
 
 @Composable
-fun ValueBox(text: String, modifier: Modifier = Modifier) {
+fun valueBox(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontSize = 48.sp,
@@ -174,7 +220,7 @@ fun ValueBox(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun RememberBox(text: String, modifier: Modifier = Modifier) {
+fun operationBox(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontSize = 30.sp,
@@ -195,7 +241,7 @@ val buttonRows = listOf(
 )
 
 @Composable
-fun CalculatorButtons(onButtonClick: (String) -> Unit, modifier: Modifier = Modifier) {
+fun calculatorButtons(onButtonClick: (String) -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -203,7 +249,7 @@ fun CalculatorButtons(onButtonClick: (String) -> Unit, modifier: Modifier = Modi
         buttonRows.forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { label ->
-                    CalculatorButton(
+                    calculatorButton(
                         label = label,
                         onClick = { onButtonClick(label) },
                         modifier = Modifier
@@ -213,7 +259,7 @@ fun CalculatorButtons(onButtonClick: (String) -> Unit, modifier: Modifier = Modi
                 }
             }
         }
-        CalculatorButton(
+        calculatorButton(
             label = "=",
             onClick = { onButtonClick("=") },
             modifier = Modifier
@@ -224,7 +270,7 @@ fun CalculatorButtons(onButtonClick: (String) -> Unit, modifier: Modifier = Modi
 }
 
 @Composable
-fun CalculatorButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun calculatorButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val isDigit = label.first().isDigit() || label == "."
     Button(
         onClick = onClick,
@@ -239,10 +285,3 @@ fun CalculatorButton(label: String, onClick: () -> Unit, modifier: Modifier = Mo
     }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun PlainTextBoxPreview() {
-//     AC1CalculatorTheme {
-//         PlainTextBox(text = "0")
-//     }
-// }
