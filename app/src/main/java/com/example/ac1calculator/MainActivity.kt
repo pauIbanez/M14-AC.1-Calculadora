@@ -30,17 +30,17 @@ import androidx.compose.ui.unit.sp
 import com.example.ac1calculator.ui.theme.AC1CalculatorTheme
 
 
-/*
- *
- *
-*/
-
 class MainActivity : ComponentActivity() {
 
 
     var number by mutableStateOf("0")
     var operation by mutableStateOf("")
-    var resetNumber by mutableStateOf(false)
+
+    var resetNumber = false
+    var accumulator: Double? = null
+    var pendingOp: Char? = null
+    var lastOp: Char? = null
+    var lastOperand: Double? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,25 +59,6 @@ class MainActivity : ComponentActivity() {
                         operationBox(operation)
                         valueBox(number)
                         calculatorButtons({ label -> processToken(label) })
-                        // CalculatorButtons(
-                        //     onButtonClick = { label ->
-                        //         when (label) {
-                        //             "C" -> {
-                        //                 currentOperation = "0"
-                        //                 currentNumber = "0"
-                        //                 lastOperation = ""
-                        //                 startNewNumber = false
-
-                        //             }
-                        //             "=" -> {
-                        //                 currentNumber = CalculateResult(currentOperation + currentNumber)
-                        //                 startNewNumber = true
-                        //                 currentOperation += currentNumber
-                        //             }
-                        //             else -> ParseValue(label)
-                        //         }
-                        //     }
-                        // )
                     }
                 }
             }
@@ -96,48 +77,113 @@ class MainActivity : ComponentActivity() {
     fun reset() {
         number = "0"
         operation = ""
+
         resetNumber = false
+        accumulator = null
+        pendingOp = null
+        lastOp = null
+        lastOperand = null
     }
 
     fun onEqual() {
+        when {
+            pendingOp != null -> {
+                val rightOperand = number.toDoubleOrNull() ?: return
+                val result = apply(accumulator!!, pendingOp!!, rightOperand) ?: return showError()
+                operation = format(accumulator!!) + pendingOp + format(rightOperand) + "="
+                lastOp = pendingOp
+                lastOperand = rightOperand
+                pendingOp = null
+                accumulator = null
+                number = format(result)
+            }
 
-        calculateResult(operation + number)
-    }
+            lastOp != null -> {
+                val leftOperand = number.toDoubleOrNull() ?: return
+                val result = apply(leftOperand, lastOp!!, lastOperand!!) ?: return showError()
+                operation = format(leftOperand) + lastOp + format(lastOperand!!) + "="
+                number = format(result)
+            }
 
-    fun onToken(token: String) {
-        if (token.first().isDigit()) onDigit(token)
-        else onOperator(token)
-    }
-
-    fun onDigit(token: String) {
-        if (resetNumber) {
-            resetNumber = false
-            number = token
-            return
-        }
-        addDigit(token)
-    }
-
-
-    fun onOperator(operator: String) {
-        if (hasPendingOperation() && resetNumber) {
-            replaceOperator(operator)
-        } else if (hasPendingOperation()) {
-            number = calculateResult(operation + number)
-            operation = number + operator
-        } else {
-            operation = number + operator
+            else -> {
+                operation = "$number="
+            }
         }
         resetNumber = true
     }
 
-    fun hasPendingOperation(): Boolean {
-        return operation.isNotEmpty() && !operation.last().isDigit()
+    fun showError() {
+        reset()
+        number = "Error"
+        resetNumber = true
     }
 
-    fun replaceOperator(token: String) {
-        operation = operation.dropLast(1) + token
+    fun onToken(token: String) {
+        if (token.first().isDigit() || token == ".") onDigit(token)
+        else onOperator(token)
     }
+
+    fun onDigit(token: String) {
+        if (token == ".") {
+            when {
+                resetNumber -> {
+                    if (pendingOp == null) operation = ""
+                    number = "0."
+                    resetNumber = false
+                }
+
+                !number.contains('.') -> number += "."
+            }
+            return
+        }
+
+        when {
+            resetNumber && pendingOp == null -> {
+                number = token
+                operation = ""
+                resetNumber = false
+            }
+
+            resetNumber -> {
+                number = token
+                resetNumber = false
+            }
+
+            else -> addDigit(token)
+        }
+    }
+
+
+    fun onOperator(operator: String) {
+
+
+        when {
+            pendingOp != null && resetNumber -> {
+                pendingOp = operator.first()
+                operation = number + operator
+            }
+
+            pendingOp != null -> {
+                val result = apply(accumulator!!, pendingOp!!, number.toDouble()) ?: return showError()
+                number = format(result)
+                accumulator = result
+                pendingOp = operator.first()
+                operation = number + operator
+            }
+
+
+            else -> {
+                accumulator = number.toDoubleOrNull() ?: return
+                pendingOp = operator.first()
+                operation = number + operator
+            }
+        }
+
+        resetNumber = true
+        lastOp = null
+        lastOperand = null
+    }
+
 
     fun addDigit(token: String) {
         var lastToken = number.takeLastWhile { it.isDigit() || it == '.' }
@@ -145,50 +191,16 @@ class MainActivity : ComponentActivity() {
         else number += token
     }
 
-    fun calculateResult(value: String): String {
-
-        var numbers = mutableListOf<Double>()
-        var operators = mutableListOf<Char>()
-        var current = ""
-
-
-        for (c in value) {
-            if (c.isDigit() || c == '.') {
-                current += c
-            } else {
-                numbers.add(current.toDoubleOrNull() ?: return "Error")
-                operators.add(c)
-                current = ""
-            }
-        }
-        numbers.add(current.toDoubleOrNull() ?: return "Error")
-
-        var i = 0
-        while (i < operators.size) {
-            val op = operators[i]
-            if (op == '×' || op == '÷') {
-                val a = numbers[i]
-                val b = numbers[i + 1]
-                if (op == '÷' && b == 0.0) return "Error"
-                numbers[i] = if (op == '×') a * b else a / b
-                numbers.removeAt(i + 1)
-                operators.removeAt(i)
-            } else {
-                i++
-            }
-        }
-
-        var result = numbers[0]
-        for (j in operators.indices) {
-            when (operators[j]) {
-                '+' -> result += numbers[j + 1]
-                '−' -> result -= numbers[j + 1]
-            }
-        }
-
-        return if (result % 1.0 == 0.0) result.toLong().toString() else result.toString()
-
+    fun apply(a: Double, op: Char, b: Double): Double? = when (op) {
+        '+' -> a + b
+        '−' -> a - b
+        '×' -> a * b
+        '÷' -> if (b == 0.0) null else a / b
+        else -> null
     }
+
+    fun format(value: Double): String =
+        if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
 
 }
 
@@ -273,10 +285,3 @@ fun calculatorButton(label: String, onClick: () -> Unit, modifier: Modifier = Mo
     }
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun PlainTextBoxPreview() {
-//     AC1CalculatorTheme {
-//         PlainTextBox(text = "0")
-//     }
-// }
