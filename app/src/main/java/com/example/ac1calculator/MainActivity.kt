@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,13 +53,13 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding),
+                            .padding(innerPadding).background(Color.Black),
                         verticalArrangement = Arrangement.Bottom
                     ) {
-
                         operationBox(operation)
                         valueBox(number)
                         calculatorButtons({ label -> processToken(label) })
+
                     }
                 }
             }
@@ -210,7 +211,7 @@ fun valueBox(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontSize = 48.sp,
-        color = Color.Black,
+        color = Color.White,
         textAlign = TextAlign.End,
         fontWeight = FontWeight.Bold,
         modifier = modifier
@@ -224,7 +225,7 @@ fun operationBox(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontSize = 30.sp,
-        color = Color.Gray,
+        color = Color.LightGray,
         textAlign = TextAlign.End,
         modifier = modifier
             .fillMaxWidth()
@@ -276,8 +277,8 @@ fun calculatorButton(label: String, onClick: () -> Unit, modifier: Modifier = Mo
         onClick = onClick,
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isDigit) Color.LightGray else Color(0xFFFF9800),
-            contentColor = if (isDigit) Color.Black else Color.White
+            containerColor = if (isDigit) Color.DarkGray else Color(0xFFFF9800),
+            contentColor =  Color.White
         ),
         modifier = modifier
     ) {
